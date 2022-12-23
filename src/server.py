@@ -5,6 +5,13 @@ from _thread import *
 
 from decouple import config
 
+from tenacity import retry, stop_after_attempt, wait_fixed
+
+from handle_http_429_errors import (
+    retry_if_http_429_error,
+    wait_for_retry_after_header
+)
+
 try:
     listening_port = config('PORT', cast=int)
 except KeyboardInterrupt:
@@ -74,6 +81,11 @@ def conn_string(conn, data, addr):
     except Exception:
         pass
 
+@retry(
+    retry=retry_if_http_429_error(),
+    wait=wait_for_retry_after_header(fallback=wait_fixed(1)),
+    stop=stop_after_attempt(5)
+)
 def proxy_server(webserver, port, conn, addr, data):
     try:
         print(data)
